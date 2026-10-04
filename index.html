@@ -2,6 +2,7 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#173e35"><meta name="apple-mobile-web-app-capable" content="yes"><title>Stopwatch · Race day</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#eff3f0;color:#20352e;font:14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:1100px;margin:20px auto;padding:0 18px}header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}h1{font-size:26px;letter-spacing:-1px;margin:0}header span{font-size:12px;color:#728078}input,button{font:inherit;border-radius:7px}input{min-width:0;border:1px solid #d5ded8;padding:9px 10px;background:white;font-size:16px}button{border:0;padding:9px 12px;font-weight:650;cursor:pointer;background:#e6ece8;color:#344b40;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}button:active{filter:brightness(.85);transform:translateY(1px)}button:disabled{opacity:.35;cursor:default}button:focus-visible,input:focus-visible{outline:3px solid #7fbea6;outline-offset:2px}.blue{background:#e7efe9;color:#245944}.green{background:#226f50;color:white}.toolbar{display:grid;grid-template-columns:minmax(100px,1fr) auto auto auto;gap:7px;margin-bottom:14px}#startAll{background:#173e35;color:white}.layout{display:grid;grid-template-columns:minmax(510px,1.6fr) minmax(270px,1fr);gap:14px}.panel{background:white;border:1px solid #dce5de;border-radius:12px;overflow:hidden;box-shadow:0 3px 15px #1d3e2905}.heading{height:39px;padding:10px 12px;background:#f8faf8;border-bottom:1px solid #e5ece6;display:flex;align-items:center;justify-content:space-between;font-size:12px;font-weight:700}.heading button{padding:4px 8px;font-size:11px}#count{color:#7a887f;font-weight:500}.row{display:grid;grid-template-columns:minmax(80px,1fr) 128px 60px 77px 22px;gap:6px;align-items:center;height:46px;padding:1px 10px;border-bottom:1px solid #edf1ed}.row:last-child{border-bottom:0}.name{width:100%;padding:6px 3px;border-color:transparent;font-weight:600;background:transparent}.name:focus{border-color:#cad9ce}.time{font:600 17px ui-monospace,"SFMono-Regular",monospace;white-space:nowrap;font-variant-numeric:tabular-nums;letter-spacing:-.6px}.row button{padding:0;height:40px;font-size:12px}.row.done{background:#f0f7f1}.row.done .time{color:#25764e}.row.done .green{opacity:1;background:transparent;color:#25764e}.row.running .time{color:#245944}.remove{background:transparent;color:#8a978e;font-size:18px!important}.empty{padding:28px 16px;color:#7a887f;text-align:center;font-size:13px}table{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}th{text-align:left;color:#7b897f;font-size:10px;text-transform:uppercase;letter-spacing:.08em;padding:9px 12px}th:first-child{width:45px}th:last-child{width:132px}td{height:42px;padding:8px 12px;border-top:1px solid #edf1ed}td:last-child,th:last-child{text-align:right;white-space:nowrap}td:last-child{font-family:ui-monospace,monospace;font-size:12px}td:nth-child(2){overflow-wrap:anywhere}.place{color:#7a887f}.place:first-child{font-weight:700}footer{color:#7c8a80;font-size:11px;line-height:1.5;margin-top:10px}@media(max-width:860px){main{margin:12px auto;padding:0 10px}.layout{grid-template-columns:1fr;gap:12px}header{margin-bottom:10px}header span{display:none}.toolbar{grid-template-columns:minmax(90px,1fr) auto auto;gap:6px;margin-bottom:10px}#newRace{grid-column:3;font-size:11px;padding:4px 8px}.row{grid-template-columns:minmax(55px,1fr) 104px 46px 65px 18px;gap:4px;padding:0 6px;height:44px}.time{font-size:14px;letter-spacing:-.8px}.row button{font-size:11px;height:40px}.name{font-size:16px;letter-spacing:-.4px}.heading{height:34px;padding:8px 10px}h1{font-size:24px}footer{margin-bottom:env(safe-area-inset-bottom)}}
+@media(max-width:360px){.row{grid-template-columns:minmax(0,1fr) 95px 42px 60px 18px}.time{font-size:13px}.toolbar button{padding:9px 8px}}
 </style></head><body><main>
 <header><h1>Stopwatch<span style="color:#226f50;font-size:26px">.</span></h1><span>RACE DAY / EVERY SECOND COUNTS</span></header>
 <form class="toolbar" id="add"><input id="newName" placeholder="Runner’s name" aria-label="New runner name" maxlength="100" autocomplete="off"><button class="blue">+ Add</button><button type="button" class="green" id="startAll">Start All</button><button type="button" id="newRace">New race</button></form>
@@ -11,6 +12,45 @@
 'use strict';
 const key='named-stopwatches-v1',resultsKey='runner-results-v1';let watches=[],results=[];
 try{const saved=JSON.parse(localStorage.getItem(key)||'[]');if(Array.isArray(saved))watches=saved.filter(w=>typeof w.id==='string'&&typeof w.name==='string'&&Number.isFinite(w.elapsed)&&w.elapsed>=0&&(w.started===null||Number.isFinite(w.started)));const r=JSON.parse(localStorage.getItem(resultsKey)||'[]');if(Array.isArray(r))results=r.filter(x=>typeof x.id==='string'&&typeof x.name==='string'&&Number.isFinite(x.time)&&x.time>=0);}catch(e){}
+// Rename the original two Park entries once, preserving their times and results.
+const parkRenameKey = 'stopwatch-park-n-j-v1';
+let parksRenamed = false;
+try { parksRenamed = localStorage.getItem(parkRenameKey) === 'done'; } catch (e) {}
+if (!parksRenamed) {
+  const replacements = ['Park N', 'Park J'];
+  const used = new Set(watches.filter(w => replacements.includes(w.name)).map(w => w.name));
+  for (const w of watches) {
+    if (w.name !== 'Park') continue;
+    const name = replacements.find(n => !used.has(n));
+    if (!name) break;
+    w.name = name;
+    used.add(name);
+    for (const r of results) if (r.id === w.id) r.name = name;
+  }
+  try {
+    localStorage.setItem(key, JSON.stringify(watches));
+    localStorage.setItem(resultsKey, JSON.stringify(results));
+    localStorage.setItem(parkRenameKey, 'done');
+  } catch (e) {}
+}
+// Default roster: duplicate names are separate runners with unique IDs.
+const defaultRoster = ["Carroll", "Collins", "Conn", "Costas", "Davis", "Doyle", "Farkas", "Glover", "Gorenc", "Harvey", "Hong", "Hsu", "Imaizumi", "Krenkel", "Lamotte", "Lebar", "Leichtling", "Lu", "Maletz", "Mendoza", "Moyer", "Neufville", "Oates", "Park N", "Park J", "Popper", "Saint-Amand", "Sauter", "Stegall", "Williams", "Yung-Coak", "Zhang", "Zheng"];
+const rosterKey = 'stopwatch-default-roster-v1';
+let rosterLoaded = false;
+try { rosterLoaded = localStorage.getItem(rosterKey) === 'loaded'; } catch (e) {}
+if (!rosterLoaded) {
+  const existing = new Map();
+  for (const w of watches) existing.set(w.name, (existing.get(w.name) || 0) + 1);
+  for (const name of defaultRoster) {
+    const available = existing.get(name) || 0;
+    if (available > 0) existing.set(name, available - 1);
+    else watches.push({id:crypto.randomUUID(), name, elapsed:0, started:null, finished:false});
+  }
+  try {
+    localStorage.setItem(key, JSON.stringify(watches));
+    localStorage.setItem(rosterKey, 'loaded');
+  } catch (e) {}
+}
 const list=document.getElementById('watches');
 const rowViews=new Map();
 function refreshRow(w){const v=rowViews.get(w.id);if(!v)return;v.row.className='row'+(w.finished?' done':w.started!==null?' running':'');v.time.textContent=format(elapsed(w));v.start.disabled=!!w.finished||w.started!==null;v.finish.disabled=!!w.finished||w.started===null;v.finish.textContent=w.finished?'✓ Done':'Finished';}
